@@ -1,0 +1,722 @@
+# Blockchain-Based Voting System — Technical Specification
+
+> **Project Type:** College Mini-Project  
+> **Date:** March 2026  
+> **Stack:** Next.js · Solidity · Ethereum (Ganache) · MongoDB · Web3.js
+
+---
+
+## 1. Overview
+
+### 1.1 Purpose
+
+This application is a **decentralized, blockchain-based voting system** designed for college elections. It replaces paper/manual voting with a tamper-proof, transparent, and verifiable digital process. Every vote is recorded as a transaction on an Ethereum blockchain, making it immutable and publicly auditable.
+
+### 1.2 Core Functionality
+
+| Feature | Description |
+|---|---|
+| **Student Registration** | Students register with personal details, a password, and a simulated fingerprint hash. |
+| **Admin Dashboard** | Admins create/manage elections, add candidates, and publish results. |
+| **Biometric Verification** | A SHA-256 fingerprint hash is stored and verified before each vote to confirm identity. |
+| **Blockchain Voting** | Votes are cast via an Ethereum smart contract, preventing double-voting at the protocol level. |
+| **Result Publication** | Admins publish results; students view tallied results on their dashboard. |
+
+### 1.3 Technology Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | **Next.js 14** (App Router) | Server-side rendering, routing, API routes |
+| Smart Contracts | **Solidity ^0.8.x** | Voting logic, double-vote prevention |
+| Blockchain | **Ganache** (local) | Local Ethereum test network |
+| Contract Tooling | **Hardhat** | Compilation, deployment, testing of contracts |
+| Database | **MongoDB** (via Mongoose) | Student data, candidate data, fingerprint hashes |
+| Auth | **bcrypt** + **JWT** | Password hashing, session tokens |
+| Blockchain Lib | **Web3.js** or **ethers.js** | Frontend ↔ smart contract interaction |
+| Fingerprint Sim | **SHA-256** (crypto module) | Simulated biometric hash |
+
+---
+
+## 2. Database Architecture
+
+All non-blockchain data is stored in **MongoDB**. Three primary collections are used.
+
+### 2.1 Collection: `students`
+
+Stores registered student information and authentication credentials.
+
+```js
+{
+  _id: ObjectId,
+  fullName: String,             // e.g. "Ansh Mehta"
+  email: String,                // unique, indexed — e.g. "ansh@college.edu"
+  studentId: String,            // unique, indexed — e.g. "21CS045"
+  department: String,           // e.g. "Computer Science"
+  year: Number,                 // e.g. 3
+  passwordHash: String,         // bcrypt hash (12 salt rounds)
+  walletAddress: String,        // Ethereum address assigned from Ganache
+  role: { type: String, default: "student" },
+  isApproved: { type: Boolean, default: false },
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+**Indexes:** `{ email: 1 }` (unique), `{ studentId: 1 }` (unique)
+
+### 2.2 Collection: `candidates`
+
+Stores candidate details linked to a specific election.
+
+```js
+{
+  _id: ObjectId,
+  fullName: String,             // e.g. "Priya Sharma"
+  party: String,                // e.g. "Student Progress Alliance"
+  department: String,           // e.g. "Electronics"
+  electionId: ObjectId,         // references the election this candidate belongs to
+  manifesto: String,            // short manifesto text (max 500 chars)
+  photoUrl: String,             // path to candidate photo (optional)
+  candidateIndex: Number,       // index in the smart contract's candidate array
+  createdAt: Date
+}
+```
+
+**Index:** `{ electionId: 1 }`
+
+### 2.3 Collection: `fingerprints`
+
+Stores simulated fingerprint hashes for biometric verification.
+
+```js
+{
+  _id: ObjectId,
+  studentId: String,            // references students.studentId
+  fingerprintHash: String,      // SHA-256 hash of the simulated fingerprint data
+  createdAt: Date
+}
+```
+
+**Index:** `{ studentId: 1 }` (unique)
+
+> [!NOTE]
+> The fingerprint hash is generated during registration by hashing a student-provided passphrase (simulating a biometric scan) with Node.js `crypto.createHash('sha256')`. In a production system, this would be replaced with actual biometric sensor integration.
+
+### 2.4 Additional Collection: `elections`
+
+Stores election metadata (the actual votes live on-chain).
+
+```js
+{
+  _id: ObjectId,
+  title: String,                // e.g. "Student Council Election 2026"
+  description: String,
+  contractAddress: String,      // deployed smart contract address
+  status: {                     // "upcoming" | "active" | "completed" | "results_published"
+    type: String,
+    enum: ["upcoming", "active", "completed", "results_published"],
+    default: "upcoming"
+  },
+  startDate: Date,
+  endDate: Date,
+  createdBy: ObjectId,          // admin user ID
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### 2.5 Collection: `admins`
+
+```js
+{
+  _id: ObjectId,
+  username: String,             // unique
+  email: String,                // unique
+  passwordHash: String,         // bcrypt hash
+  role: { type: String, default: "admin" },
+  createdAt: Date
+}
+```
+
+> [!IMPORTANT]
+> Admin registration requires a **server-side secret key** (`ADMIN_SECRET_KEY` in `.env`). This prevents unauthorized users from creating admin accounts.
+
+---
+
+## 3. User Roles & Access Levels
+
+### 3.1 Student
+
+| Capability | Details |
+|---|---|
+| Register | Create account with student ID, email, password, fingerprint passphrase |
+| Login | Authenticate with email + password |
+| View Elections | See all active and upcoming elections |
+| Cast Vote | After fingerprint verification, vote for one candidate per election |
+| View Results | See published election results (bar chart / table) |
+
+**Restrictions:**
+- Cannot create or manage elections
+- Cannot add candidates
+- Cannot publish results
+- Cannot vote twice in the same election (enforced on-chain)
+
+### 3.2 Admin
+
+| Capability | Details |
+|---|---|
+| Register | Create admin account using the secret key |
+| Login | Authenticate with email + password |
+| Create Election | Define election title, description, dates, and deploy a smart contract |
+| Add Candidates | Add candidate details to an election |
+| Manage Election Status | Start, end, or cancel elections |
+| Publish Results | Read final tallies from the smart contract and publish to students |
+| Approve Students | Approve or reject student registrations |
+
+**Restrictions:**
+- Cannot cast votes
+
+---
+
+## 4. Registration & Authentication
+
+### 4.1 Student Registration Flow
+
+```mermaid
+sequenceDiagram
+    participant S as Student
+    participant F as Frontend
+    participant API as Next.js API
+    participant DB as MongoDB
+    
+    S->>F: Fill registration form
+    F->>API: POST /api/auth/register
+    API->>API: Validate inputs
+    API->>API: Hash password (bcrypt, 12 rounds)
+    API->>API: Hash fingerprint passphrase (SHA-256)
+    API->>DB: Insert into `students` collection
+    API->>DB: Insert into `fingerprints` collection
+    API->>API: Assign Ganache wallet address
+    API-->>F: 201 Created + JWT token
+    F-->>S: Redirect to dashboard
+```
+
+**Password Storage:**
+```js
+const bcrypt = require('bcrypt');
+const SALT_ROUNDS = 12;
+
+// Registration
+const passwordHash = await bcrypt.hash(plainTextPassword, SALT_ROUNDS);
+
+// Login verification
+const isValid = await bcrypt.compare(plainTextPassword, storedHash);
+```
+
+**Fingerprint Hashing:**
+```js
+const crypto = require('crypto');
+
+// During registration — student provides a passphrase simulating a fingerprint scan
+const fingerprintHash = crypto
+  .createHash('sha256')
+  .update(fingerprintPassphrase)
+  .digest('hex');
+
+// During voting — student re-enters the passphrase; hash is compared
+```
+
+### 4.2 Admin Registration Flow
+
+1. Admin navigates to `/admin/register`
+2. Enters username, email, password, and **secret key**
+3. API verifies the secret key against `process.env.ADMIN_SECRET_KEY`
+4. If valid → password is hashed with bcrypt → admin record created
+5. If invalid → `403 Forbidden` returned
+
+### 4.3 Login (Both Roles)
+
+- **Endpoint:** `POST /api/auth/login`
+- **Payload:** `{ email, password, role: "student" | "admin" }`
+- **Response:** JWT containing `{ userId, role, walletAddress }` — expires in 24 hours
+- **Storage:** JWT is stored in an `httpOnly` cookie for security
+
+### 4.4 Route Protection
+
+```
+Middleware: middleware.js (Next.js middleware)
+├── /student/*  → requires valid JWT with role === "student"
+├── /admin/*    → requires valid JWT with role === "admin"
+└── /api/*      → role-based checks on each endpoint
+```
+
+---
+
+## 5. Election Management
+
+### 5.1 Create Election (Admin Only)
+
+**Endpoint:** `POST /api/elections/create`
+
+**Flow:**
+1. Admin fills form: title, description, start date, end date
+2. API creates election record in MongoDB with `status: "upcoming"`
+3. A new `Voting` smart contract is deployed to Ganache via Hardhat
+4. The deployed contract address is saved to the election record
+
+### 5.2 Add Candidates to Election
+
+**Endpoint:** `POST /api/elections/:electionId/candidates`
+
+**Flow:**
+1. Admin adds candidate name, party, department, manifesto
+2. Candidate is added to the smart contract via `addCandidate(name)`
+3. Candidate record is saved in MongoDB with the `candidateIndex` from the contract
+
+### 5.3 Election Status Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Upcoming: Admin creates election
+    Upcoming --> Active: Admin starts election\n(startDate reached)
+    Active --> Completed: Admin ends election\n(endDate reached or manual)
+    Completed --> ResultsPublished: Admin publishes results
+    ResultsPublished --> [*]
+```
+
+| Status | Student Actions Allowed | Admin Actions Allowed |
+|---|---|---|
+| `upcoming` | View election details | Add candidates, edit details |
+| `active` | Cast vote | Monitor live vote count |
+| `completed` | Wait for results | Publish results |
+| `results_published` | View results | View results |
+
+### 5.4 View Elections
+
+**Endpoint:** `GET /api/elections`
+
+Returns all elections with optional query filters:
+- `?status=active` — only active elections
+- `?status=results_published` — elections with published results
+
+---
+
+## 6. Voting Process
+
+### 6.1 Smart Contract — `Voting.sol`
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+contract Voting {
+    struct Candidate {
+        uint id;
+        string name;
+        uint voteCount;
+    }
+
+    address public admin;
+    bool public electionActive;
+    
+    mapping(uint => Candidate) public candidates;
+    mapping(address => bool) public hasVoted;
+    uint public candidateCount;
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only admin can perform this action");
+        _;
+    }
+
+    modifier electionIsActive() {
+        require(electionActive, "Election is not active");
+        _;
+    }
+
+    constructor() {
+        admin = msg.sender;
+        electionActive = false;
+    }
+
+    function addCandidate(string memory _name) public onlyAdmin {
+        require(!electionActive, "Cannot add candidates during active election");
+        candidateCount++;
+        candidates[candidateCount] = Candidate(candidateCount, _name, 0);
+    }
+
+    function startElection() public onlyAdmin {
+        require(candidateCount > 0, "Add candidates before starting");
+        electionActive = true;
+    }
+
+    function vote(uint _candidateId) public electionIsActive {
+        require(!hasVoted[msg.sender], "You have already voted");
+        require(_candidateId > 0 && _candidateId <= candidateCount, "Invalid candidate");
+
+        hasVoted[msg.sender] = true;
+        candidates[_candidateId].voteCount++;
+    }
+
+    function endElection() public onlyAdmin {
+        electionActive = false;
+    }
+
+    function getCandidate(uint _candidateId)
+        public view
+        returns (uint, string memory, uint)
+    {
+        Candidate memory c = candidates[_candidateId];
+        return (c.id, c.name, c.voteCount);
+    }
+}
+```
+
+### 6.2 Double-Voting Prevention
+
+Double-voting is prevented **at two levels**:
+
+| Level | Mechanism |
+|---|---|
+| **Smart Contract** | `hasVoted[msg.sender]` mapping — reverts if the wallet has already voted |
+| **Frontend** | UI disables the "Vote" button if the user's wallet is flagged as having voted |
+
+### 6.3 Voting Flow
+
+```mermaid
+sequenceDiagram
+    participant S as Student
+    participant F as Frontend
+    participant API as Next.js API
+    participant DB as MongoDB
+    participant BC as Blockchain
+    
+    S->>F: Click "Vote" on a candidate
+    F->>F: Prompt for fingerprint passphrase
+    F->>API: POST /api/vote/verify-fingerprint
+    API->>DB: Fetch stored hash from `fingerprints`
+    API->>API: Compare SHA-256(input) === storedHash
+    API-->>F: ✅ Verified / ❌ Denied
+    
+    alt Fingerprint Verified
+        F->>BC: Call contract.vote(candidateId) from student's wallet
+        BC->>BC: Check hasVoted[wallet] === false
+        BC->>BC: Increment candidate.voteCount
+        BC-->>F: Transaction receipt
+        F-->>S: "Vote cast successfully!"
+    else Fingerprint Denied
+        F-->>S: "Fingerprint verification failed"
+    end
+```
+
+---
+
+## 7. Blockchain Integration
+
+### 7.1 Local Development Setup
+
+| Component | Tool | Details |
+|---|---|---|
+| Local Blockchain | **Ganache** | Provides 10 pre-funded Ethereum accounts; runs on `http://127.0.0.1:7545` |
+| Contract Development | **Hardhat** | Compile, test, and deploy Solidity contracts |
+| Frontend Integration | **ethers.js v6** | Connect to Ganache, send transactions, read contract state |
+
+### 7.2 Hardhat Configuration
+
+```js
+// hardhat.config.js
+require("@nomicfoundation/hardhat-toolbox");
+
+module.exports = {
+  solidity: "0.8.19",
+  networks: {
+    ganache: {
+      url: "http://127.0.0.1:7545",
+      // Ganache provides accounts automatically
+    },
+  },
+};
+```
+
+### 7.3 Contract Deployment Script
+
+```js
+// scripts/deploy.js
+const hre = require("hardhat");
+
+async function main() {
+  const Voting = await hre.ethers.getContractFactory("Voting");
+  const voting = await Voting.deploy();
+  await voting.waitForDeployment();
+  console.log("Voting contract deployed to:", await voting.getAddress());
+}
+
+main().catch(console.error);
+```
+
+**Deployment command:**
+```bash
+npx hardhat run scripts/deploy.js --network ganache
+```
+
+### 7.4 Wallet Assignment Strategy
+
+Each registered student is assigned a unique Ganache account:
+
+1. Ganache provides **10 accounts** by default (configurable to more)
+2. On student registration, the API assigns the next unused account
+3. The account address and private key are stored server-side
+4. When voting, the API signs the transaction on behalf of the student using their assigned private key
+
+> [!WARNING]
+> In a production system, users would connect their own wallets (e.g., MetaMask). For this mini-project, server-side wallet management simplifies the UX but is **not secure for production use**.
+
+### 7.5 Frontend ↔ Contract Interaction
+
+```js
+// lib/contract.js
+import { ethers } from "ethers";
+import VotingABI from "./VotingABI.json";
+
+export function getContract(contractAddress, signerOrProvider) {
+  return new ethers.Contract(contractAddress, VotingABI, signerOrProvider);
+}
+
+export function getProvider() {
+  return new ethers.JsonRpcProvider("http://127.0.0.1:7545");
+}
+```
+
+---
+
+## 8. User Interface
+
+### 8.1 Student Pages
+
+#### `/student/dashboard`
+
+| Element | Type | Action |
+|---|---|---|
+| Election Cards | Card Grid | Shows all elections with status badge (Active / Upcoming / Results Published) |
+| "View Details" button | Button | Opens election details page |
+| Profile section | Sidebar | Shows student name, ID, department |
+| "Logout" button | Button | Clears JWT, redirects to login |
+
+#### `/student/election/:id`
+
+| Element | Type | Action |
+|---|---|---|
+| Candidate list | Accordion / Cards | Shows each candidate's name, party, manifesto |
+| "Vote for [Name]" button | Button (primary) | Triggers fingerprint verification → vote transaction |
+| "Already Voted" badge | Disabled state | Shown if `hasVoted[wallet] === true` |
+| Vote confirmation modal | Modal | "Are you sure you want to vote for [Name]?" with Confirm/Cancel |
+
+#### `/student/results/:id`
+
+| Element | Type | Action |
+|---|---|---|
+| Results bar chart | Chart (Chart.js) | Horizontal bar chart showing each candidate's vote count |
+| Results table | Table | Candidate name, party, votes, percentage |
+| Winner highlight | Banner | Green banner showing the winning candidate |
+
+### 8.2 Admin Pages
+
+#### `/admin/dashboard`
+
+| Element | Type | Action |
+|---|---|---|
+| "Create Election" button | Button (primary) | Opens election creation form |
+| Elections table | Table | Lists all elections with status, dates, action buttons |
+| "Start" / "End" buttons | Button (per row) | Change election status |
+| "Add Candidates" button | Button (per row) | Opens candidate management |
+| "Publish Results" button | Button (per row) | Publishes results (only when status is `completed`) |
+| "Approve Students" link | Nav link | Navigate to student approval page |
+
+#### `/admin/elections/create`
+
+| Element | Type | Action |
+|---|---|---|
+| Title input | Text input | Election title |
+| Description input | Textarea | Election description |
+| Start/End date pickers | Date inputs | Election date range |
+| "Create & Deploy Contract" button | Button | Creates election + deploys smart contract |
+| Loading spinner | Spinner | Shown during contract deployment |
+
+#### `/admin/elections/:id/candidates`
+
+| Element | Type | Action |
+|---|---|---|
+| Existing candidates list | Table | Name, party, department |
+| "Add Candidate" form | Form | Name, party, department, manifesto, photo upload |
+| "Submit" button | Button | Adds candidate to DB + smart contract |
+| "Remove" button | Button (danger) | Removes candidate (only if election is `upcoming`) |
+
+---
+
+## 9. Results Management
+
+### 9.1 Result Compilation (Admin)
+
+When an admin clicks **"Publish Results"**:
+
+1. API calls the smart contract's `getCandidate(id)` for every candidate in the election
+2. Vote counts are read from the blockchain (source of truth)
+3. Results are compiled into a summary object:
+   ```js
+   {
+     electionId: "...",
+     candidates: [
+       { name: "Priya Sharma", party: "SPA", votes: 142 },
+       { name: "Rahul Verma", party: "USF", votes: 98 },
+     ],
+     totalVotes: 240,
+     winner: "Priya Sharma",
+     publishedAt: "2026-03-01T10:00:00Z"
+   }
+   ```
+4. Election status is updated to `results_published`
+5. Results become visible to all students
+
+### 9.2 Result Access (Student)
+
+- Students see a **"View Results"** button on elections with `status === "results_published"`
+- Results page displays a **bar chart** (using Chart.js or Recharts) and a **data table**
+- The **winner is highlighted** with a prominent banner
+- Blockchain transaction hashes can be optionally displayed for transparency
+
+### 9.3 Result Integrity
+
+| Check | Implementation |
+|---|---|
+| Source of truth | Vote counts are always read directly from the smart contract |
+| Immutability | Blockchain data cannot be altered after the transaction is mined |
+| Auditability | Each vote is a transaction with a hash that can be independently verified |
+
+---
+
+## 10. Security Considerations
+
+### 10.1 Authentication & Session Security
+
+| Concern | Mitigation |
+|---|---|
+| Password storage | bcrypt with **12 salt rounds** — never store plaintext |
+| JWT security | Store in `httpOnly`, `secure`, `sameSite: strict` cookies |
+| Token expiry | 24-hour expiration; refresh on active use |
+| Admin registration | Protected by server-side secret key |
+| Route protection | Next.js middleware checks JWT on every protected route |
+
+### 10.2 Blockchain Security
+
+| Concern | Mitigation |
+|---|---|
+| Double voting | `hasVoted` mapping in smart contract — reverts duplicate transactions |
+| Unauthorized actions | `onlyAdmin` modifier on sensitive functions |
+| Contract tampering | Once deployed, contract code is immutable on-chain |
+| Private key exposure | Keys stored server-side in environment variables, never exposed to frontend |
+
+### 10.3 Database Security
+
+| Concern | Mitigation |
+|---|---|
+| Injection attacks | Mongoose ODM parameterizes all queries — no raw string concatenation |
+| Data validation | Schema-level validation with Mongoose + API-level validation with `zod` or `joi` |
+| Connection security | Use `MONGODB_URI` from `.env` — never hardcode credentials |
+| Fingerprint data | Only the SHA-256 hash is stored — the original passphrase is never persisted |
+
+### 10.4 API Security
+
+| Concern | Mitigation |
+|---|---|
+| CORS | Restrict to known origins (`http://localhost:3000` in development) |
+| Rate limiting | Use `express-rate-limit` middleware on auth endpoints (max 5 attempts/minute) |
+| Input sanitization | Validate and sanitize all inputs before processing |
+| Error handling | Never expose stack traces or internal errors to the client |
+
+### 10.5 Environment Variables
+
+```env
+# .env.local
+MONGODB_URI=mongodb://localhost:27017/voting-system
+JWT_SECRET=your-256-bit-secret
+ADMIN_SECRET_KEY=your-admin-registration-secret
+GANACHE_URL=http://127.0.0.1:7545
+NEXT_PUBLIC_GANACHE_URL=http://127.0.0.1:7545
+```
+
+> [!CAUTION]
+> **Never commit `.env.local` to version control.** Add it to `.gitignore` immediately.
+
+---
+
+## Appendix A: Project Directory Structure
+
+```
+miniproject-app/
+├── contracts/
+│   └── Voting.sol
+├── scripts/
+│   └── deploy.js
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── auth/
+│   │   │   │   ├── register/route.js
+│   │   │   │   └── login/route.js
+│   │   │   ├── elections/
+│   │   │   │   ├── create/route.js
+│   │   │   │   ├── [id]/candidates/route.js
+│   │   │   │   └── route.js
+│   │   │   └── vote/
+│   │   │       ├── cast/route.js
+│   │   │       └── verify-fingerprint/route.js
+│   │   ├── student/
+│   │   │   ├── dashboard/page.js
+│   │   │   ├── election/[id]/page.js
+│   │   │   └── results/[id]/page.js
+│   │   ├── admin/
+│   │   │   ├── dashboard/page.js
+│   │   │   ├── elections/
+│   │   │   │   ├── create/page.js
+│   │   │   │   └── [id]/candidates/page.js
+│   │   │   └── register/page.js
+│   │   ├── login/page.js
+│   │   ├── register/page.js
+│   │   └── layout.js
+│   ├── lib/
+│   │   ├── contract.js
+│   │   ├── db.js
+│   │   └── auth.js
+│   └── models/
+│       ├── Student.js
+│       ├── Admin.js
+│       ├── Candidate.js
+│       ├── Election.js
+│       └── Fingerprint.js
+├── hardhat.config.js
+├── package.json
+├── .env.local
+└── .gitignore
+```
+
+## Appendix B: Key npm Dependencies
+
+```json
+{
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "mongoose": "^8.0.0",
+    "bcrypt": "^5.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "ethers": "^6.0.0",
+    "chart.js": "^4.0.0",
+    "react-chartjs-2": "^5.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "hardhat": "^2.19.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0"
+  }
+}
+```
