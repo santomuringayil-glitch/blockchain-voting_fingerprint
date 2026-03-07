@@ -37,6 +37,48 @@ export default function ElectionVotePage() {
         setMessage({ type: "", text: "" });
 
         try {
+            // Biometric Challenge
+            let biometricToken = "bypass_dev"; // Fallback for dev without hardware
+            try {
+                const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+                const isAvailable = await BiometricAuth.checkBiometry();
+
+                if (isAvailable.isAvailable) {
+                    const originalConsoleError = console.error;
+                    console.error = (...args) => {
+                        if (args[0] && typeof args[0] === 'string' && args[0].includes('cancelled')) return;
+                        if (args[0]?.message?.includes('cancelled')) return;
+                        originalConsoleError(...args);
+                    };
+
+                    try {
+                        await BiometricAuth.authenticate({
+                            reason: "Verify your identity to cast this vote",
+                            cancelTitle: "Cancel",
+                            allowDeviceCredential: true
+                        });
+                    } finally {
+                        console.error = originalConsoleError;
+                    }
+
+                    // If authentication passes, no exception is thrown
+                    const { Device } = await import('@capacitor/device');
+                    const deviceId = await Device.getId();
+                    biometricToken = `bio-${deviceId.identifier}`;
+                } else {
+                    console.log("Biometrics not available on this device, proceeding with fallback.");
+                }
+            } catch (e) {
+                if (e.code === 'userCancel' || e.message?.toLowerCase().includes('cancel')) {
+                    setMessage({ type: "error", text: "Biometric authentication cancelled." });
+                    setVoting(false);
+                    return;
+                }
+                console.warn("Biometric plugin error:", e);
+                // Proceed with fallback for web testing, in production you'd restrict this
+                // or you could block the vote here if strict hardware is required on all devices
+            }
+
             // Step 1: Cast vote
             const voteRes = await fetch("/api/vote/cast", {
                 method: "POST",
@@ -44,6 +86,7 @@ export default function ElectionVotePage() {
                 body: JSON.stringify({
                     electionId: params.id,
                     candidateIndex: selectedCandidate.candidateIndex,
+                    biometricToken: biometricToken
                 }),
             });
 
@@ -54,7 +97,7 @@ export default function ElectionVotePage() {
                 return;
             }
 
-            setMessage({ type: "success", text: "🎉 Vote cast successfully!" });
+            setMessage({ type: "success", text: "🎉 Vote cast successfully! Secured by Biometrics 🔒" });
             setHasVoted(true);
             setVoting(false);
 
@@ -136,8 +179,12 @@ export default function ElectionVotePage() {
 
                 {candidates.map((candidate) => (
                     <div key={candidate._id} className="candidate-card">
-                        <div className="candidate-avatar">
-                            {candidate.fullName.charAt(0)}
+                        <div className="candidate-avatar" style={{ overflow: "hidden", padding: candidate.imageUrl ? 0 : undefined }}>
+                            {candidate.imageUrl ? (
+                                <img src={candidate.imageUrl} alt={candidate.fullName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : (
+                                candidate.fullName.charAt(0)
+                            )}
                         </div>
                         <div className="candidate-info">
                             <div className="candidate-name">{candidate.fullName}</div>

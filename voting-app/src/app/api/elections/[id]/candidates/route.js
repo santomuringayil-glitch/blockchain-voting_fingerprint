@@ -31,7 +31,7 @@ export async function POST(request, { params }) {
         const { id } = await params;
         const body = await request.json();
 
-        const { fullName, party, department, manifesto } = body;
+        const { fullName, party, department, manifesto, imageUrl } = body;
 
         if (!fullName) {
             return NextResponse.json(
@@ -80,6 +80,7 @@ export async function POST(request, { params }) {
             party: party || "Independent",
             department: department || "",
             manifesto: manifesto || "",
+            imageUrl: imageUrl || "",
             electionId: id,
             candidateIndex,
         });

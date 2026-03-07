@@ -47,8 +47,27 @@ export default function LoginPage() {
 
     return (
         <div className="form-container" style={{ paddingTop: "4rem" }}>
-            <div className="form-card">
-                <h1 className="form-title">🗳️ BlockVote</h1>
+            <div className="form-card" style={{ position: "relative" }}>
+                <button 
+                    onClick={() => router.back()} 
+                    style={{
+                        position: "absolute",
+                        top: "1.5rem",
+                        left: "1.5rem",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-secondary)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        fontSize: "0.9rem",
+                        padding: "0.5rem"
+                    }}
+                >
+                    ⬅️ Back
+                </button>
+                <h1 className="form-title" style={{ marginTop: "1rem" }}>🗳️ BlockVote</h1>
                 <p className="form-subtitle">Sign in to your account</p>
 
                 {error && <div className="alert alert-error">⚠️ {error}</div>}
@@ -113,6 +132,26 @@ export default function LoginPage() {
                     </div>
                 </form>
 
+                <div className="form-link">
+                    Forgot your password?{" "}
+                    <div style={{ display: "flex", gap: "1rem", justifyContent: "center", marginTop: "0.5rem" }}>
+                        <button 
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); router.push('/forgot-password'); }}
+                            style={{ color: "var(--primary-color)", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: "0.9rem" }}
+                        >
+                            Reset with Fingerprint
+                        </button>
+                        <span style={{ color: "var(--text-secondary)" }}>|</span>
+                        <button 
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); router.push('/forgot-password-email'); }}
+                            style={{ color: "var(--primary-color)", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: "0.9rem" }}
+                        >
+                            Reset with Email
+                        </button>
+                    </div>
+                </div>
                 <div className="form-link">
                     Student?{" "}
                     <Link href="/register">Create an account</Link>

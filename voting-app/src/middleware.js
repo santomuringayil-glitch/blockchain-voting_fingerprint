@@ -4,7 +4,7 @@ export function middleware(request) {
     const { pathname } = request.nextUrl;
 
     // VERY PLAIN MIDDLEWARE - NO IMPORTS
-    const publicPaths = ["/login", "/register", "/admin/register", "/api/auth", "/auth"];
+    const publicPaths = ["/login", "/register", "/admin/register", "/api/auth", "/auth", "/forgot-password", "/forgot-password-email", "/reset-password"];
     console.log("MIDDLEWARE: Request for", pathname);
     const isPublic = publicPaths.some(
         (p) => pathname === p || pathname.startsWith(p + "/")

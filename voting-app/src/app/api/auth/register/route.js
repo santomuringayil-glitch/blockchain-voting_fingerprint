@@ -33,6 +33,17 @@ export async function POST(request) {
             );
         }
 
+        // Check if device is already registered to another student (Option 1 - Strict Security)
+        if (body.deviceId) {
+            const existingDeviceUser = await Fingerprint.findOne({ fingerprintHash: `bio-${body.deviceId}` });
+            if (existingDeviceUser) {
+                return NextResponse.json(
+                    { error: "Device already registered to another student. One account per device." },
+                    { status: 409 }
+                );
+            }
+        }
+
         // Hash password with bcrypt
         const passwordHash = await hashPassword(password);
 

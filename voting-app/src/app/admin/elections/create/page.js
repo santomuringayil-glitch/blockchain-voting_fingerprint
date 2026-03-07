@@ -10,6 +10,7 @@ export default function CreateElectionPage() {
         description: "",
         startDate: "",
         endDate: "",
+        electionCode: "",
     });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -123,8 +124,18 @@ export default function CreateElectionPage() {
                             </div>
                         </div>
 
-                        <div className="alert alert-info">
-                            ℹ️ A new Voting smart contract will be automatically deployed to Ganache when you create this election.
+                        <div className="form-group">
+                            <label className="form-label">Custom Election ID (Optional)</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="Leave blank to auto-generate (e.g., ELECTION-20231001-0001)"
+                                value={formData.electionCode}
+                                onChange={update("electionCode")}
+                            />
+                            <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                                Only fill this out if you need to override the auto-generated ID.
+                            </p>
                         </div>
 
                         <div className="form-footer">
@@ -135,10 +146,10 @@ export default function CreateElectionPage() {
                             >
                                 {loading ? (
                                     <>
-                                        <span className="spinner"></span> Deploying Contract & Creating...
+                                        <span className="spinner"></span> Creating Election...
                                     </>
                                 ) : (
-                                    "Create Election & Deploy Contract"
+                                    "Create Election"
                                 )}
                             </button>
                         </div>

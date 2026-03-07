@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'BlockVote',
   webDir: 'out',
   server: {
-    url: 'http://172.20.168.28:3001',
+    url: 'http://172.20.192.78:3000',
     cleartext: true
   }
 };

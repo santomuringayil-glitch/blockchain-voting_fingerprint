@@ -31,6 +31,10 @@ const CandidateSchema = new mongoose.Schema(
             type: Number,
             required: true,
         },
+        imageUrl: {
+            type: String,
+            default: "",
+        },
     },
     {
         timestamps: true,

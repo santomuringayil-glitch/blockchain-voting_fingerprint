@@ -35,6 +35,27 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
+            // STEP 1: Get Device ID for uniqueness check before creating account
+            let deviceId = null;
+            let secureBiometricToken = null;
+            let biometricsAvailable = false;
+
+            try {
+                const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+                const isAvailable = await BiometricAuth.checkBiometry();
+
+                if (isAvailable.isAvailable) {
+                    biometricsAvailable = true;
+                    const { Device } = await import('@capacitor/device');
+                    const device = await Device.getId();
+                    deviceId = device.identifier;
+                    secureBiometricToken = `bio-${deviceId}`;
+                }
+            } catch (e) {
+                console.warn("Biometrics plugin not available:", e);
+            }
+
+            // STEP 2: Create Account (will fail if device is duplicate)
             const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -45,6 +66,7 @@ export default function RegisterPage() {
                     department: formData.department,
                     year: formData.year,
                     password: formData.password,
+                    deviceId: deviceId, // Send device ID for pre-check
                 }),
             });
 
@@ -54,6 +76,50 @@ export default function RegisterPage() {
                 setError(data.error || "Registration failed");
                 setLoading(false);
                 return;
+            }
+
+            // STEP 3: Prompt for actual Fingerprint Scan if account creation succeeds
+            if (biometricsAvailable && secureBiometricToken) {
+                const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth'); // Re-import for scope
+                const originalConsoleError = console.error;
+                console.error = (...args) => {
+                    if (args[0] && typeof args[0] === 'string' && args[0].includes('cancelled')) return;
+                    if (args[0]?.message?.includes('cancelled')) return;
+                    originalConsoleError(...args);
+                };
+
+                try {
+                    await BiometricAuth.authenticate({
+                        reason: "Register your fingerprint for secure voting",
+                        cancelTitle: "Skip for now",
+                        allowDeviceCredential: true
+                    });
+
+                    // STEP 4: Save Biometric Token to DB
+                    const bioRes = await fetch("/api/auth/register-biometric", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ biometricToken: secureBiometricToken }),
+                    });
+
+                    if (bioRes.ok) {
+                        alert("🎉 Account created & Fingerprint successfully registered!");
+                    } else {
+                        const errorData = await bioRes.json();
+                        alert(`Account created, but Fingerprint Registration Failed: ${errorData.error}`);
+                    }
+                } catch (e) {
+                    if (e.code === 'userCancel' || e.message?.toLowerCase().includes('cancel')) {
+                        console.log("User skipped biometric registration.");
+                        alert("Account created. You skipped fingerprint registration.");
+                    } else {
+                        console.warn("Biometric error during registration:", e);
+                    }
+                } finally {
+                    console.error = originalConsoleError;
+                }
+            } else {
+                alert("Account created successfully!");
             }
 
             router.push("/student/dashboard");
@@ -68,8 +134,27 @@ export default function RegisterPage() {
 
     return (
         <div className="form-container" style={{ paddingTop: "2rem" }}>
-            <div className="form-card">
-                <h1 className="form-title">🗳️ Student Registration</h1>
+            <div className="form-card" style={{ position: "relative" }}>
+                <button 
+                    onClick={() => router.back()} 
+                    style={{
+                        position: "absolute",
+                        top: "1.5rem",
+                        left: "1.5rem",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-secondary)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        fontSize: "0.9rem",
+                        padding: "0.5rem"
+                    }}
+                >
+                    ⬅️ Back
+                </button>
+                <h1 className="form-title" style={{ marginTop: "1rem" }}>🗳️ Student Registration</h1>
                 <p className="form-subtitle">
                     Create your BlockVote account to participate in elections
                 </p>

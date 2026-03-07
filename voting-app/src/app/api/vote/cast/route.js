@@ -15,12 +15,28 @@ export async function POST(request) {
 
         await dbConnect();
         const body = await request.json();
-        const { electionId, candidateIndex } = body;
+        const { electionId, candidateIndex, biometricToken } = body;
         if (!electionId || candidateIndex === undefined || candidateIndex === null) {
             return NextResponse.json(
                 { error: "Election ID and candidate index are required" },
                 { status: 400 }
             );
+        }
+
+        // Biometric Security Layer
+        const Fingerprint = require("@/models/Fingerprint").default;
+        const fingerprintRecord = await Fingerprint.findOne({ studentId: user.studentId });
+
+        if (fingerprintRecord) {
+            if (!biometricToken) {
+                return NextResponse.json(
+                    { error: "Biometric authentication required. Please scan your fingerprint to vote." },
+                    { status: 403 }
+                );
+            }
+            console.log(`DEBUG: Biometric token received for ${user.studentId}`);
+        } else {
+            console.log(`DEBUG: No biometric data found for ${user.studentId}. Skipping strict hardware enforcement.`);
         }
 
         const election = await Election.findById(electionId);

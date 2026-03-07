@@ -13,7 +13,7 @@ export async function POST(request) {
 
         await dbConnect();
         const body = await request.json();
-        const { title, description, startDate, endDate } = body;
+        const { title, description, startDate, endDate, electionCode: customElectionCode } = body;
 
         if (!title || !startDate || !endDate) {
             return NextResponse.json(
@@ -50,12 +50,22 @@ export async function POST(request) {
             return `ELECTION-${dateStr}-${sequentialNum}`;
         };
 
-        const electionCode = await generateElectionCode(startDate);
+        const finalElectionCode = customElectionCode && customElectionCode.trim() !== "" 
+            ? customElectionCode.trim() 
+            : await generateElectionCode(startDate);
+
+        const existingCounterpart = await Election.findOne({ electionCode: finalElectionCode });
+        if (existingCounterpart) {
+            return NextResponse.json(
+                { error: `An election with the ID "${finalElectionCode}" already exists. Please provide a different Custom Election ID.` },
+                { status: 400 }
+            );
+        }
 
         const election = await Election.create({
             title,
             description: description || "",
-            electionCode,
+            electionCode: finalElectionCode,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             contractAddress,

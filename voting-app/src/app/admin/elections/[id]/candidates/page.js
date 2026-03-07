@@ -15,6 +15,7 @@ export default function ManageCandidatesPage() {
         party: "",
         department: "",
         manifesto: "",
+        imageUrl: "",
     });
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -36,6 +37,45 @@ export default function ManageCandidatesPage() {
     useEffect(() => {
         fetchData();
     }, [params.id]);
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const MAX_WIDTH = 150;
+                const MAX_HEIGHT = 150;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                setFormData(prev => ({ ...prev, imageUrl: dataUrl }));
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
 
     const handleAddCandidate = async (e) => {
         e.preventDefault();
@@ -65,7 +105,10 @@ export default function ManageCandidatesPage() {
             }
 
             setSuccess(`${formData.fullName} added successfully!`);
-            setFormData({ fullName: "", party: "", department: "", manifesto: "" });
+            setFormData({ fullName: "", party: "", department: "", manifesto: "", imageUrl: "" });
+            // Reset the file input visually
+            const fileInput = document.getElementById("candidateImage");
+            if (fileInput) fileInput.value = "";
             await fetchData();
             setAdding(false);
         } catch {
@@ -146,6 +189,22 @@ export default function ManageCandidatesPage() {
 
                         <div className="form-row">
                             <div className="form-group">
+                                <label className="form-label">Profile Image (Optional)</label>
+                                <input
+                                    type="file"
+                                    id="candidateImage"
+                                    className="form-input"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    style={{ padding: "0.5rem" }}
+                                />
+                                {formData.imageUrl && (
+                                    <div style={{ marginTop: "0.5rem" }}>
+                                        <img src={formData.imageUrl} alt="Preview" style={{ width: "50px", height: "50px", borderRadius: "50%", objectFit: "cover" }} />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="form-group">
                                 <label className="form-label">Department</label>
                                 <input
                                     type="text"
@@ -153,6 +212,20 @@ export default function ManageCandidatesPage() {
                                     placeholder="e.g., Computer Science"
                                     value={formData.department}
                                     onChange={update("department")}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="form-label">Manifesto</label>
+                                <textarea
+                                    className="form-textarea"
+                                    placeholder="Brief manifesto or campaign promise (max 500 chars)"
+                                    value={formData.manifesto}
+                                    onChange={update("manifesto")}
+                                    maxLength={500}
+                                    rows={2}
                                 />
                             </div>
                             <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>
@@ -170,18 +243,6 @@ export default function ManageCandidatesPage() {
                                     )}
                                 </button>
                             </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">Manifesto</label>
-                            <textarea
-                                className="form-textarea"
-                                placeholder="Brief manifesto or campaign promise (max 500 chars)"
-                                value={formData.manifesto}
-                                onChange={update("manifesto")}
-                                maxLength={500}
-                                rows={2}
-                            />
                         </div>
                     </form>
                 </div>
@@ -209,8 +270,12 @@ export default function ManageCandidatesPage() {
                 ) : (
                     candidates.map((candidate) => (
                         <div key={candidate._id} className="candidate-card">
-                            <div className="candidate-avatar">
-                                {candidate.fullName.charAt(0)}
+                            <div className="candidate-avatar" style={{ overflow: "hidden", padding: candidate.imageUrl ? 0 : undefined }}>
+                                {candidate.imageUrl ? (
+                                    <img src={candidate.imageUrl} alt={candidate.fullName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                ) : (
+                                    candidate.fullName.charAt(0)
+                                )}
                             </div>
                             <div className="candidate-info">
                                 <div className="candidate-name">{candidate.fullName}</div>
