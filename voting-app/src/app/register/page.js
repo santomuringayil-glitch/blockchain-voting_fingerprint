@@ -16,6 +16,8 @@ export default function RegisterPage() {
     });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -236,25 +238,45 @@ export default function RegisterPage() {
                     <div className="form-row">
                         <div className="form-group">
                             <label className="form-label">Password</label>
-                            <input
-                                type="password"
-                                className="form-input"
-                                placeholder="Min 6 characters"
-                                value={formData.password}
-                                onChange={update("password")}
-                                required
-                            />
+                            <div className="password-input-container">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    className="form-input has-icon"
+                                    placeholder="Min 6 characters"
+                                    value={formData.password}
+                                    onChange={update("password")}
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle-btn"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    title={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? "👁️" : "🙈"}
+                                </button>
+                            </div>
                         </div>
                         <div className="form-group">
                             <label className="form-label">Confirm Password</label>
-                            <input
-                                type="password"
-                                className="form-input"
-                                placeholder="Re-enter password"
-                                value={formData.confirmPassword}
-                                onChange={update("confirmPassword")}
-                                required
-                            />
+                            <div className="password-input-container">
+                                <input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    className="form-input has-icon"
+                                    placeholder="Re-enter password"
+                                    value={formData.confirmPassword}
+                                    onChange={update("confirmPassword")}
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle-btn"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    title={showConfirmPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showConfirmPassword ? "👁️" : "🙈"}
+                                </button>
+                            </div>
                         </div>
                     </div>
 

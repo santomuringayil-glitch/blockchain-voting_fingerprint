@@ -57,8 +57,8 @@ export async function POST(request, { params }) {
 
         // Add candidate to smart contract
         let candidateIndex = 0;
-        try {
-            if (election.contractAddress) {
+        if (election.contractAddress) {
+            try {
                 const provider = getProvider();
                 const accounts = await provider.listAccounts();
                 const adminSigner = accounts[0];
@@ -67,9 +67,12 @@ export async function POST(request, { params }) {
                 await tx.wait();
                 const count = await contract.getCandidateCount();
                 candidateIndex = Number(count);
+            } catch (e) {
+                console.warn("Smart contract interaction failed:", e.message);
             }
-        } catch (e) {
-            console.warn("Smart contract interaction failed:", e.message);
+        }
+        
+        if (candidateIndex === 0) {
             // Fallback: use DB count
             const existingCount = await Candidate.countDocuments({ electionId: id });
             candidateIndex = existingCount + 1;

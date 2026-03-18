@@ -71,12 +71,24 @@ export async function POST(request, { params }) {
         // Sort by votes descending
         results.sort((a, b) => b.votes - a.votes);
 
-        const winner = results.length > 0 ? results[0].name : "No candidates";
+        let winner = "No candidates";
+        let isTie = false;
+        if (results.length > 0) {
+            const highestVotes = results[0].votes;
+            const topCandidates = results.filter(c => c.votes === highestVotes);
+            if (topCandidates.length > 1 && highestVotes > 0) {
+                isTie = true;
+                winner = "It's a Tie!";
+            } else {
+                winner = results[0].name;
+            }
+        }
 
         const resultData = {
             candidates: results,
             totalVotes,
             winner,
+            isTie,
             publishedAt: new Date().toISOString(),
         };
 

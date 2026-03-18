@@ -129,14 +129,29 @@ export default function ResultsPage() {
                     <span className="badge badge-results">Results Published</span>
                 </div>
 
-                {/* Winner Banner */}
-                <div className="winner-banner">
-                    <h2>🏆 Winner</h2>
-                    <h3>{results.winner}</h3>
-                    <p style={{ color: "var(--text-secondary)", marginTop: "0.5rem" }}>
-                        Total Votes: {results.totalVotes}
-                    </p>
-                </div>
+                {/* Winner / Tie Banner */}
+                {results.isTie ? (
+                    <div className="winner-banner" style={{ borderColor: "rgba(245, 158, 11, 0.3)", background: "linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(99, 102, 241, 0.15))" }}>
+                        <h2>🤝 It's a Tie!</h2>
+                        <h3 style={{ background: "linear-gradient(135deg, #f59e0b, #6366f1)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                            {results.candidates
+                                .filter(c => c.votes === results.candidates[0].votes)
+                                .map(c => c.name)
+                                .join(" & ")}
+                        </h3>
+                        <p style={{ color: "var(--text-secondary)", marginTop: "0.5rem" }}>
+                            Each with {results.candidates[0].votes} vote{results.candidates[0].votes !== 1 ? "s" : ""} — Total Votes: {results.totalVotes}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="winner-banner">
+                        <h2>🏆 Winner</h2>
+                        <h3>{results.winner}</h3>
+                        <p style={{ color: "var(--text-secondary)", marginTop: "0.5rem" }}>
+                            Total Votes: {results.totalVotes}
+                        </p>
+                    </div>
+                )}
 
                 {/* Chart */}
                 <div className="chart-container">
@@ -166,11 +181,16 @@ export default function ResultsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {results.candidates.map((candidate, index) => (
+                            {results.candidates.map((candidate, index) => {
+                                const highestVotes = results.candidates[0].votes;
+                                const isTied = results.isTie && candidate.votes === highestVotes;
+                                const rank = isTied ? 1 : index + 1;
+                                return (
                                 <tr key={index}>
                                     <td>
-                                        <strong>{index + 1}</strong>
-                                        {index === 0 && " 🏆"}
+                                        <strong>{rank}</strong>
+                                        {isTied && " 🤝"}
+                                        {!results.isTie && index === 0 && " 🏆"}
                                     </td>
                                     <td>
                                         <strong>{candidate.name}</strong>
@@ -190,7 +210,8 @@ export default function ResultsPage() {
                                             : "0%"}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

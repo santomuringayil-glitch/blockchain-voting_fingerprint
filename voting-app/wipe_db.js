@@ -24,8 +24,8 @@ async function wipeDatabase() {
         } else {
             for (let collection of collections) {
                 const collName = collection.collectionName;
-                console.log(`Dropping collection: ${collName}...`);
-                await collection.drop();
+                console.log(`Deleting all documents from collection: ${collName}...`);
+                await collection.deleteMany({});
             }
             console.log("\n✅ Database wiped successfully!");
             console.log("All Students, Admins, Elections, and Fingerprints have been deleted.");

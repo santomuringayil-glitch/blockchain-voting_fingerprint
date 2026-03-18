@@ -326,6 +326,34 @@ body::before {
   color: var(--text-muted);
 }
 
+.password-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.password-toggle-btn:hover {
+  color: var(--text-primary);
+}
+
+.form-input.has-icon {
+  padding-right: 2.5rem;
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 80px;

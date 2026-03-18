@@ -13,6 +13,7 @@ export default function LoginPage() {
     });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -103,16 +104,26 @@ export default function LoginPage() {
 
                     <div className="form-group">
                         <label className="form-label">Password</label>
-                        <input
-                            type="password"
-                            className="form-input"
-                            placeholder="Enter your password"
-                            value={formData.password}
-                            onChange={(e) =>
-                                setFormData({ ...formData, password: e.target.value })
-                            }
-                            required
-                        />
+                        <div className="password-input-container">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                className="form-input has-icon"
+                                placeholder="Enter your password"
+                                value={formData.password}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, password: e.target.value })
+                                }
+                                required
+                            />
+                            <button
+                                type="button"
+                                className="password-toggle-btn"
+                                onClick={() => setShowPassword(!showPassword)}
+                                title={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? "👁️" : "🙈"}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="form-footer">
