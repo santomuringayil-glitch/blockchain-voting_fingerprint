@@ -7,14 +7,17 @@ export default function AdminDashboard() {
     const router = useRouter();
     const [user, setUser] = useState(null);
     const [elections, setElections] = useState([]);
+    const [studentCount, setStudentCount] = useState(0);
+    const [votedCount, setVotedCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState("");
 
     const fetchData = async () => {
         try {
-            const [userData, electionsData] = await Promise.all([
+            const [userData, electionsData, statsData] = await Promise.all([
                 fetch("/api/auth/me").then((r) => r.json()),
                 fetch("/api/elections").then((r) => r.json()),
+                fetch("/api/admin/stats").then((r) => r.json()),
             ]);
 
             if (!userData.user || userData.user.role !== "admin") {
@@ -24,6 +27,8 @@ export default function AdminDashboard() {
 
             setUser(userData.user);
             setElections(electionsData.elections || []);
+            setStudentCount(statsData.studentCount || 0);
+            setVotedCount(statsData.votedCount || 0);
             setLoading(false);
         } catch {
             router.push("/login");
@@ -50,6 +55,21 @@ export default function AdminDashboard() {
             await fetchData();
         } catch (e) {
             alert("Failed to update election status: " + e.message);
+        }
+        setActionLoading("");
+    };
+
+    const handleDelete = async (electionId) => {
+        if (!confirm("Are you sure you want to delete this election? This action cannot be undone.")) return;
+        setActionLoading(electionId + "delete");
+        try {
+            const res = await fetch(`/api/elections/${electionId}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) throw new Error("Failed to delete election");
+            await fetchData();
+        } catch (e) {
+            alert(e.message);
         }
         setActionLoading("");
     };
@@ -118,9 +138,29 @@ export default function AdminDashboard() {
                             Manage elections, candidates, and results
                         </p>
                     </div>
-                    <Link href="/admin/elections/create" className="btn btn-primary">
-                        ➕ Create Election
-                    </Link>
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                        <div className="stat-card" style={{ 
+                            background: "rgba(99,102,241,0.1)", 
+                            padding: "0.5rem 1rem", 
+                            borderRadius: "8px",
+                            border: "1px solid rgba(99,102,241,0.2)",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            minWidth: "120px"
+                        }}>
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px" }}>Total Students</span>
+                            <span style={{ fontSize: "1.5rem", fontWeight: "bold", color: "var(--accent-primary)" }}>{studentCount}</span>
+                        </div>
+
+                        <Link href="/admin/students" className="btn btn-secondary" style={{ alignSelf: "center" }}>
+                            👥 Manage Students
+                        </Link>
+                        <Link href="/admin/elections/create" className="btn btn-primary" style={{ alignSelf: "center" }}>
+                            ➕ Create Election
+                        </Link>
+                    </div>
                 </div>
 
                 {elections.length === 0 ? (
@@ -144,6 +184,7 @@ export default function AdminDashboard() {
                                 <tr>
                                     <th>Election</th>
                                     <th>Status</th>
+                                    <th>Votes</th>
                                     <th>Election ID</th>
                                     <th>Start Date</th>
                                     <th>End Date</th>
@@ -166,6 +207,11 @@ export default function AdminDashboard() {
                                             </div>
                                         </td>
                                         <td>{getStatusBadge(election.status)}</td>
+                                        <td style={{ textAlign: "center" }}>
+                                            <span style={{ fontWeight: "bold", color: "var(--accent-primary)" }}>
+                                                {election.totalVotes || 0}
+                                            </span>
+                                        </td>
                                         <td>
                                             <code
                                                 style={{
@@ -269,6 +315,18 @@ export default function AdminDashboard() {
                                                         ✅ Published
                                                     </span>
                                                 )}
+                                                <button
+                                                    className="btn btn-danger btn-sm"
+                                                    style={{ marginLeft: "0.5rem", background: "var(--danger)" }}
+                                                    onClick={() => handleDelete(election._id)}
+                                                    disabled={actionLoading === election._id + "delete"}
+                                                >
+                                                    {actionLoading === election._id + "delete" ? (
+                                                        <span className="spinner"></span>
+                                                    ) : (
+                                                        "🗑️ Delete"
+                                                    )}
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

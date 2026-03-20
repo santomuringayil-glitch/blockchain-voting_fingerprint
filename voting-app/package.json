@@ -30,6 +30,7 @@
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "eslint": "^8",
     "eslint-config-next": "15.1.0",
-    "hardhat": "^2.22.15"
+    "hardhat": "^2.22.15",
+    "pptxgenjs": "^4.0.1"
   }
 }

@@ -47,6 +47,10 @@ const StudentSchema = new mongoose.Schema(
             type: String,
             default: "student",
         },
+        hasVotedAny: {
+            type: Boolean,
+            default: false,
+        },
         isApproved: {
             type: Boolean,
             default: true,

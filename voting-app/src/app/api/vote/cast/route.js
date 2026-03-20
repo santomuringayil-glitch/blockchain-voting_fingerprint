@@ -107,6 +107,13 @@ export async function POST(request) {
                 const receipt = await tx.wait();
                 console.log(`DEBUG: Transaction Success! Block: ${receipt.blockNumber}`);
 
+                // Record off-chain that the student has voted at least once
+                student.hasVotedAny = true;
+                await student.save();
+
+                election.totalVotes = (election.totalVotes || 0) + 1;
+                await election.save();
+
                 return NextResponse.json({
                     message: "Vote cast successfully!",
                     transactionHash: receipt.hash,

@@ -42,6 +42,10 @@ const ElectionSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.Mixed,
             default: null,
         },
+        totalVotes: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,
