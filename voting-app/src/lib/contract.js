@@ -18,11 +18,8 @@ export const VotingABI = [
     "function checkHasVoted(address _voter) view returns (bool)",
 ];
 
-// Voting contract bytecode placeholder — will be read from artifacts after compilation
-let _bytecode = null;
-
 export function getProvider() {
-    const url = process.env.GANACHE_URL || "http://127.0.0.1:7545";
+    const url = process.env.GANACHE_URL || "https://ethereum-sepolia-rpc.publicnode.com";
     return new ethers.JsonRpcProvider(url);
 }
 
@@ -32,24 +29,46 @@ export function getContract(contractAddress, signerOrProvider) {
 
 export async function getAdminSigner() {
     const provider = getProvider();
+    const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+    if (privateKey) {
+        return new ethers.Wallet(privateKey, provider);
+    }
+    // Fallback to Ganache (local dev)
     const accounts = await provider.listAccounts();
-    // First account is always the admin
     return accounts[0];
 }
 
 export async function getStudentSigner(walletIndex) {
+    // On Sepolia, we use the deployer key to submit votes on behalf of students
+    // This is a simplified approach for a college project
     const provider = getProvider();
+    const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+    if (privateKey) {
+        // Use a deterministic wallet derived from the deployer key + walletIndex
+        const baseWallet = new ethers.Wallet(privateKey, provider);
+        // For Sepolia, we use the same admin wallet to send vote transactions
+        // since students don't have their own Sepolia wallets
+        return baseWallet;
+    }
+    // Fallback to Ganache (local dev)
     const accounts = await provider.listAccounts();
     if (walletIndex >= accounts.length) {
-        throw new Error("No more Ganache accounts available");
+        throw new Error("No more accounts available");
     }
     return accounts[walletIndex];
 }
 
 export async function deployVotingContract() {
     const provider = getProvider();
-    const accounts = await provider.listAccounts();
-    const adminSigner = accounts[0]; // first Ganache account = admin
+    let adminSigner;
+    
+    const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+    if (privateKey) {
+        adminSigner = new ethers.Wallet(privateKey, provider);
+    } else {
+        const accounts = await provider.listAccounts();
+        adminSigner = accounts[0];
+    }
 
     // Read compiled bytecode
     let bytecode;
@@ -80,8 +99,5 @@ export async function deployVotingContract() {
 }
 
 export async function getNextWalletIndex() {
-    // This will be managed by counting students in the DB
-    // Wallet index 0 is reserved for admin
-    // Students get indices 1, 2, 3, ...
-    return null; // caller should pass in the count
+    return null;
 }
