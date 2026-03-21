@@ -109,8 +109,9 @@ export default function ResultsPage() {
     return (
         <>
             <nav className="nav-bar">
-                <Link href="/student/dashboard" className="nav-logo" style={{ textDecoration: "none" }}>
-                    🗳️ BlockVote
+                <Link href="/student/dashboard" className="nav-logo">
+                    <img src="/logo.png" alt="BlockVote Logo" className="nav-logo-img" />
+                    <span>BlockVote</span>
                 </Link>
                 <Link href="/student/dashboard" className="btn btn-secondary btn-sm">
                     ← Back to Dashboard

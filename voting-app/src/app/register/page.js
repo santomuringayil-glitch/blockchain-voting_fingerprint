@@ -156,7 +156,10 @@ export default function RegisterPage() {
                 >
                     ⬅️ Back
                 </button>
-                <h1 className="form-title" style={{ marginTop: "1rem" }}>🗳️ Student Registration</h1>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "1rem", marginTop: "1rem" }}>
+                    <img src="/logo.png" alt="BlockVote Logo" style={{ width: "64px", height: "64px", marginBottom: "1rem" }} />
+                    <h1 className="form-title">Student Registration</h1>
+                </div>
                 <p className="form-subtitle">
                     Create your BlockVote account to participate in elections
                 </p>

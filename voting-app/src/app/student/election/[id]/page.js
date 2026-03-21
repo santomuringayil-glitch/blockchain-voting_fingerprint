@@ -122,8 +122,9 @@ export default function ElectionVotePage() {
     return (
         <>
             <nav className="nav-bar">
-                <Link href="/student/dashboard" className="nav-logo" style={{ textDecoration: "none" }}>
-                    🗳️ BlockVote
+                <Link href="/student/dashboard" className="nav-logo">
+                    <img src="/logo.png" alt="BlockVote Logo" className="nav-logo-img" />
+                    <span>BlockVote</span>
                 </Link>
                 <Link href="/student/dashboard" className="btn btn-secondary btn-sm">
                     ← Back to Dashboard
@@ -218,8 +219,9 @@ export default function ElectionVotePage() {
             {showModal && (
                 <div className="modal-overlay" onClick={() => !voting && setShowModal(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="modal-title">
-                            🗳️ Confirm Your Vote
+                        <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "0.75rem", justifyContent: "center" }}>
+                            <img src="/logo.png" alt="" style={{ width: "24px", height: "24px" }} />
+                            Confirm Your Vote
                         </h3>
                         <p style={{ color: "var(--text-secondary)", marginBottom: "1rem", fontSize: "0.9rem" }}>
                             Voting for{" "}

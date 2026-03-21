@@ -132,8 +132,9 @@ export default function ManageCandidatesPage() {
     return (
         <>
             <nav className="nav-bar">
-                <Link href="/admin/dashboard" className="nav-logo" style={{ textDecoration: "none" }}>
-                    🛡️ BlockVote Admin
+                <Link href="/admin/dashboard" className="nav-logo">
+                    <img src="/logo.png" alt="BlockVote Logo" className="nav-logo-img" />
+                    <span>BlockVote Admin</span>
                 </Link>
                 <Link href="/admin/dashboard" className="btn btn-secondary btn-sm">
                     ← Back to Dashboard

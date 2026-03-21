@@ -119,7 +119,10 @@ export default function AdminDashboard() {
     return (
         <>
             <nav className="nav-bar">
-                <span className="nav-logo">🛡️ BlockVote Admin</span>
+                <Link href="/admin/dashboard" className="nav-logo">
+                    <img src="/logo.png" alt="BlockVote Logo" className="nav-logo-img" />
+                    <span>BlockVote Admin</span>
+                </Link>
                 <div className="nav-links">
                     <span className="nav-link">
                         {user?.username}

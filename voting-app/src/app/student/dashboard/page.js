@@ -76,7 +76,10 @@ export default function StudentDashboard() {
     return (
         <>
             <nav className="nav-bar">
-                <span className="nav-logo">🗳️ BlockVote</span>
+                <Link href="/student/dashboard" className="nav-logo">
+                    <img src="/logo.png" alt="BlockVote Logo" className="nav-logo-img" />
+                    <span>BlockVote Student</span>
+                </Link>
                 <div className="nav-links">
                     <span className="nav-link">
                         Welcome, {user?.studentId}

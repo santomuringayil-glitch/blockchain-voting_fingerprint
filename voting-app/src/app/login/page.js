@@ -68,7 +68,10 @@ export default function LoginPage() {
                 >
                     ⬅️ Back
                 </button>
-                <h1 className="form-title" style={{ marginTop: "1rem" }}>🗳️ BlockVote</h1>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "1rem", marginTop: "1rem" }}>
+                    <img src="/logo.png" alt="BlockVote Logo" style={{ width: "64px", height: "64px", marginBottom: "1rem" }} />
+                    <h1 className="form-title">BlockVote</h1>
+                </div>
                 <p className="form-subtitle">Sign in to your account</p>
 
                 {error && <div className="alert alert-error">⚠️ {error}</div>}
