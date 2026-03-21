@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'BlockVote',
   webDir: 'out',
   server: {
-    url: 'http://192.168.1.10:3000',
+    url: 'https://blockchain-voting-fingerprint.vercel.app',
     cleartext: true
   }
 };
